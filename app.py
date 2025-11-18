@@ -10,7 +10,7 @@ st.markdown("**Official UN GHSL data · No live satellite calls · Instant loadi
 @st.cache_data
 def load_data():
     # ← CHANGE THIS to your actual GitHub username and repo name
-    url = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO_NAME/main/saudi_cities_sdg1131_1975_2025.csv"
+    url = "https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/refs/heads/main/saudi_cities_sdg1131_1975_2025.csv"
     return pd.read_csv(url)
 
 df = load_data()
