@@ -6,3 +6,4 @@ streamlit-folium
 matplotlib
 networkx
 scikit-learn
+plotly
