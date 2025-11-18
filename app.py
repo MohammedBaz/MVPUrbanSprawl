@@ -1,12 +1,11 @@
 import streamlit as st
 import osmnx as ox
 import geopandas as gpd
-import folium
 from streamlit_folium import st_folium
 from shapely.geometry import box
 import numpy as np
 import pandas as pd
-import random
+import folium # إعادة إضافة folium للتأكد من الواردات
 
 # --- إعدادات الصفحة ---
 st.set_page_config(page_title="راصد - Urban Sprawl Monitor", layout="wide")
@@ -36,7 +35,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- بيانات SDG الحقيقية لمنطقة "الرياض - الملقا" (لإثبات المفهوم) ---
-# هذه الأرقام تمثل بيانات WorldPop/GEE مستخلصة مسبقاً
+# تمثل هذه الأرقام بيانات أولية تم استخلاصها من WorldPop و Landsat/Sentinel
 REAL_SDG_DATA = {
     "الرياض - حي الملقا": {
         "Urb_hist_area": 5500000.0,  # مساحة مبنية 2015 (م²)
@@ -146,30 +145,45 @@ if st.session_state.data_loaded:
 
 
             # 2. حساب المؤشرات (SDG 11.3.1 - LCRPGR)
-            # تم تصحيح مكان هذه العمليات لتكون داخل الكتلة Try/Except وبمسافة بادئة صحيحة
             LCR = np.log(Urb_target / Urb_hist) / time_span if Urb_hist > 0 else 0
             PGR = np.log(Pop_target / Pop_hist) / time_span if Pop_hist > 0 else 0
             
             LCRPGR = LCR / PGR if PGR > 0 else 0
-
+            
             # 3. عرض المؤشرات (KPIs)
             st.subheader(f"📊 لوحة مؤشرات التنمية المستدامة: {selected_area}")
             col1, col2, col3, col4 = st.columns(4)
             
-            col1.metric("المساحة المتوقعة (مليون م²)", f"{Urb_target/1e6:.2f}")
+            # تصحيح الوحدة من 'مليون م²' إلى 'كم²' لتقليل الالتباس
+            col1.metric("المساحة المتوقعة (كم²)", f"{Urb_target/1e6:.2f}")
             col2.metric("السكان المتوقعون", f"{Pop_target:,.0f} نسمة")
             col3.metric("معدل LCR/PGR (المؤشر 11.3.1)", f"{LCRPGR:.2f}", help="المؤشر يقيس كفاءة استهلاك الأراضي (الأفضل أن يكون قريباً من 1).")
             col4.metric("حالة المؤشر", "فعالية متوسطة" if 1 < LCRPGR < 1.5 else "فعالية عالية" if LCRPGR <= 1 else "فعالية منخفضة")
 
             st.write("---")
             
+            # إضافة سطر يوضح مصدر البيانات الحقيقية
+            if selected_area in REAL_SDG_DATA:
+                st.markdown(f"""
+                <div style='background-color: #e0f7fa; padding: 10px; border-radius: 5px;'>
+                    **مصدر بيانات الفترة {base_year}-{current_year_data} لـ {selected_area}:**
+                    <br>
+                    - **المساحة العمرانية (Urb):** استخلاص من صور الأقمار الصناعية Landsat (عبر GEE).
+                    - **السكان (Pop):** بيانات WorldPop الشبكية عالية الدقة.
+                    <br>
+                    *(تنويه: الإسقاط المستقبلي بعد {current_year_data} يعتمد على معدلات نمو محاكاة).*
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.write("---")
+
             # 4. الرسوم البيانية
             st.subheader("📈 تحليل النمو الزمني (Urb vs. Pop)")
             
             chart_data = pd.DataFrame({
                 'السنة': [base_year, current_year_data, target_year],
                 'المساحة المبنية': [Urb_hist, Urb_curr, Urb_target],
-                'السكان': [Pop_hist * 10, Pop_curr * 10, Pop_target * 10] 
+                'السكان': [Pop_hist * 100, Pop_curr * 100, Pop_target * 100] # زيادة عامل الضرب للرسم البياني لتباين أفضل
             })
             
             st.bar_chart(chart_data, x='السنة', y=['المساحة المبنية', 'السكان'], color=['#FF4B4B', '#1F77B4'])
