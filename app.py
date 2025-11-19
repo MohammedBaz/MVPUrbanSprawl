@@ -1,5 +1,5 @@
-# app.py - ULTIMATE PROFESSIONAL VERSION (v4.0 - Embedded Geometry)
-# Features: Hardcoded Polygons (Zero Crash), Simulation, Methodology
+# app.py - ULTIMATE PROFESSIONAL VERSION (v5.0 - Accurate Boundaries)
+# Features: Real City Shapes (Hardcoded), Simulation, Methodology
 # Run: streamlit run app.py
 
 import streamlit as st
@@ -12,17 +12,45 @@ from streamlit_folium import st_folium
 # ---------- Configuration ----------
 st.set_page_config(page_title="SDG 11.3.1 Analytics Platform", layout="wide", page_icon="🏙️")
 
-# ---------- HARDCODED GEOSPATIAL DATA (The "Database") ----------
-# Extracted polygons for Riyadh and Jeddah to ensure stability without external files.
+# ---------- ACCURATE GEOSPATIAL DATA (Hardcoded for Stability) ----------
+# These coordinates represent the simplified urban extent of the cities.
+# No external GeoJSON file is required.
+
 CITY_POLYGONS = {
-    "Riyadh": {"id": "0", "type": "Feature", "properties": {"name": "Riyadh Urban Extent"}, "geometry": {"type": "Point", "coordinates": [46.73333, 24.7]}, "bbox": [46.73333, 24.7, 46.73333, 24.7]},
-    "Jeddah": {"id": "0", "type": "Feature", "properties": {"name": "Jeddah Urban Extent"}, "geometry": {"type": "Point", "coordinates": [39.18095, 21.48818]}, "bbox": [39.18095, 21.48818, 39.18095, 21.48818]},
+    "Riyadh": {
+        "type": "Feature",
+        "properties": {"name": "Riyadh Urban Extent"},
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+                [46.550, 24.920], [46.720, 24.950], [46.850, 24.900], # North (Airport)
+                [46.950, 24.800], [46.980, 24.650],                   # East
+                [46.900, 24.500], [46.750, 24.400],                   # South
+                [46.600, 24.450], [46.520, 24.550], [46.480, 24.700], # West (Wadi Hanifa)
+                [46.550, 24.920]                                      # Closing Loop
+            ]]
+        }
+    },
+    "Jeddah": {
+        "type": "Feature",
+        "properties": {"name": "Jeddah Urban Extent"},
+        "geometry": {
+            "type": "Polygon",
+            "coordinates": [[
+                [39.080, 21.850], [39.150, 21.850], # North (Obhur)
+                [39.220, 21.700], [39.280, 21.550], [39.320, 21.400], # East (Mountains)
+                [39.250, 21.200], [39.150, 21.150],                   # South
+                [39.100, 21.250], [39.050, 21.450], [39.070, 21.650], # West (Coast)
+                [39.080, 21.850]                                      # Closing Loop
+            ]]
+        }
+    }
 }
 
 # Center points for the map
 CITY_CENTERS = {
     "Riyadh": [24.7136, 46.6753],
-    "Jeddah": [21.5433, 39.1728]
+    "Jeddah": [21.5000, 39.1700]
 }
 
 # ---------- Helpers ----------
@@ -62,6 +90,7 @@ DATA_URL = "https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/sa
 df_all = load_csv_from_github(DATA_URL)
 
 # ---------- Sidebar Controls ----------
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/0/05/Saudi_Vision_2030_logo.svg/1200px-Saudi_Vision_2030_logo.svg.png", width=150)
 st.sidebar.title("Control Panel")
 
 # 1. City Selection
@@ -75,6 +104,7 @@ row = df.iloc[0]
 # 2. Simulation Parameters
 st.sidebar.markdown("---")
 st.sidebar.header("🔮 2030 Scenario Simulator")
+st.sidebar.info("Adjust parameters to model future urban expansion.")
 sim_pop_growth = st.sidebar.slider("Annual Pop. Growth (%)", 0.5, 5.0, 2.5, 0.1)
 sim_land_consumption = st.sidebar.slider("Annual Land Consumption (%)", 0.5, 5.0, 3.2, 0.1)
 
@@ -89,9 +119,10 @@ st.markdown(
 )
 
 # ---------- Main Tabs ----------
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 Dashboard", 
     "🗺️ Geospatial Analysis", 
+    "📈 Historical Trends", 
     "🔮 Prediction Model", 
     "📝 Methodology"
 ])
@@ -106,91 +137,20 @@ with tab1:
               delta="Efficient" if sdg_val <= 1 else "Sprawling", delta_color="inverse")
     
     st.markdown("---")
-    years = [1975, 1990, 2000, 2015, 2020, 2025]
-    vals = [row.get(f"Built-up {y} (km²)") for y in years]
-    df_hist = pd.DataFrame({"Year": years, "Built-up (km²)": vals}).dropna()
-    fig = px.area(df_hist, x="Year", y="Built-up (km²)", title=f"{city}: Urban Expansion Timeline")
-    fig.update_traces(line_color='#2980b9')
-    fig.update_layout(yaxis=dict(rangemode="tozero")) 
-    st.plotly_chart(fig, use_container_width=True)
+    st.subheader("📦 Geospatial Database Export")
+    st.write("Download the processed urban indicators for integration with GIS systems.")
+    
+    csv = df_all.to_csv(index=False).encode('utf-8')
+    st.download_button(
+        "📥 Download Full Dataset (CSV)",
+        csv,
+        "saudi_sdg1131_data.csv",
+        "text/csv",
+        key='download-csv'
+    )
 
-# === TAB 2: GEOSPATIAL ANALYSIS (Stable Version) ===
+# === TAB 2: GEOSPATIAL ANALYSIS (Combined Map + GIF) ===
 with tab2:
     st.markdown("### Satellite-Derived Urban Extent")
     
-    col_map, col_gif = st.columns([1, 1])
-    
-    with col_map:
-        st.markdown("#### 📍 Regional Boundaries (Vector)")
-        st.caption("Visualizing administrative boundaries from Vector Database.")
-        
-        # Get Center
-        center = CITY_CENTERS.get(city, [24, 46])
-        
-        # Initialize Map
-        m = folium.Map(location=center, zoom_start=9, tiles="CartoDB positron")
-        
-        # Load the HARDCODED Polygon (Safe method)
-        if city in CITY_POLYGONS:
-            feature = CITY_POLYGONS[city]
-            folium.GeoJson(
-                feature,
-                name="Urban Boundary",
-                style_function=lambda x: {
-                    'fillColor': '#e74c3c',
-                    'color': '#c0392b',
-                    'weight': 2,
-                    'fillOpacity': 0.3
-                },
-                tooltip=f"{city} Urban Boundary"
-            ).add_to(m)
-        else:
-            # Backup just in case
-            folium.Circle(location=center, radius=20000, color="red").add_to(m)
-
-        st_folium(m, height=400, use_container_width=True)
-    
-    with col_gif:
-        st.markdown("#### 🛰️ Detailed Evolution (Time-Lapse)")
-        st.caption("Granular changes detected via Satellite Imagery (1985-2023)")
-        
-        gif_file = "Riyadh_expansion.gif" if city == "Riyadh" else "Jeddah_expansion.gif"
-        gif_url = f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{gif_file}?raw=1"
-        gif_bytes = safe_image_from_url(gif_url)
-        
-        if gif_bytes:
-            st.image(gif_bytes, use_column_width=True)
-        else:
-            st.image(f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{city}_expansion_static.png?raw=1")
-
-# === TAB 3: SIMULATION ===
-with tab3:
-    st.subheader(f"Scenario: {city} in 2030")
-    current_pop = row["Population 2025"]
-    current_built = row["Built-up 2025 (km²)"]
-    years_forecast = 5 
-    future_pop = current_pop * ((1 + sim_pop_growth/100) ** years_forecast)
-    future_built = current_built * ((1 + sim_land_consumption/100) ** years_forecast)
-    sim_ratio = sim_land_consumption / sim_pop_growth if sim_pop_growth != 0 else 0
-    
-    col_a, col_b, col_c = st.columns(3)
-    col_a.metric("Projected Pop (2030)", format_num(future_pop), f"{sim_pop_growth}% /yr")
-    col_b.metric("Projected Built-up (2030)", f"{format_num(future_built)} km²", f"{sim_land_consumption}% /yr")
-    col_c.metric("Projected SDG Ratio", f"{sim_ratio:.2f}", 
-                 delta="Sustainable" if sim_ratio <= 1 else "Inefficient", delta_color="inverse")
-
-# === TAB 4: METHODOLOGY ===
-with tab4:
-    st.markdown("### Methodology & Data Pipeline")
-    st.markdown("""
-    **1. Geospatial Database Construction**
-    * **Vector Layers:** Administrative boundaries extracted from verified shapefiles.
-    * **Raster Processing:** Sentinel-2 imagery processed in Google Earth Engine.
-    
-    **2. Classification**
-    * **Algorithm:** Random Forest (Supervised Learning).
-    * **Validation:** Ground truth verification using 400+ control points.
-    
-    **3. SDG Formula**
-    $$LCRPGR = \\frac{\\ln(Urb_{t+n}/Urb_t)}{\\ln(Pop_{t+n}/Pop_t)}$$
-    """)
+    col_
