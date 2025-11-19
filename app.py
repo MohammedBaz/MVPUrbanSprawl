@@ -1,60 +1,79 @@
-# app.py - FINAL RELIABLE VERSION: Riyadh & Jeddah only (19 Nov 2025)
+# app.py - FINAL PROFESSIONAL VERSION (19 Nov 2025) - English only + Metrics + Clean Design
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 
 st.set_page_config(page_title="SDG 11.3.1 Riyadh & Jeddah", layout="wide")
 
-# Language
-lang = st.sidebar.radio("Language / اللغة", ["English", "العربية"])
+# --- CLEAN TITLE ---
+st.title("🇸🇦 SDG 11.3.1: Urban Expansion in Riyadh & Jeddah")
+st.markdown("**Official UN GHSL Data (1975–2025) | Real-time Expansion Metrics**")
 
-if lang == "العربية":
-    st.title("🇸🇦 التوسع الحضري في الرياض وجدة – الهدف 11.3.1")
-    st.markdown("**بيانات رسمية موثوقة 100% من الأمم المتحدة (GHSL 2023)**")
-else:
-    st.title("🇸🇦 SDG 11.3.1 – Riyadh & Jeddah (Reliable Data Only)")
-    st.markdown("**100% reliable official UN GHSL data – Dammam excluded for maximum accuracy**")
-
-# Load data – CORRECT URL (works right now)
+# --- LOAD DATA ---
 @st.cache_data
 def load_data():
     url = "https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/saudi_cities_sdg1131_1975_2025.csv"
     df = pd.read_csv(url)
-    # Keep only the two most reliable cities
     return df[df["City"].isin(["Riyadh", "Jeddah"])].reset_index(drop=True)
 
 df = load_data()
 
-city = st.selectbox("Select City / اختر المدينة", df["City"])
+# --- SIDEBAR CONTROLS (city + optional controls) ---
+with st.sidebar:
+    st.header("Controls")
+    city = st.selectbox("Select City", df["City"])
+    st.info("Animation shows 2020 (dark red) → 2025 (bright red = new development)")
+
 row = df[df["City"] == city].iloc[0]
 
-# Key metrics
+# --- MAIN METRICS ---
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Built-up 2025 (km²)", f"{row['Built-up 2025 (km²)']:,}")
+c1.metric("Built-up Area 2025", f"{row['Built-up 2025 (km²)']:,} km²")
 c2.metric("Population 2025", f"{row['Population 2025']:,.0f}")
 c3.metric("SDG 11.3.1 Ratio (2020-25)", f"{row['SDG 11.3.1 Ratio (2020-25)']:.3f}")
-c4.metric("Growth Type 2025", row["Growth Type 2025"])
+c4.metric("Growth Pattern", row["Growth Type 2025"])
 
-# Interactive expansion animation
-st.subheader("Urban Expansion 2020 → 2025" if lang == "English" else "التوسع الحضري 2020 → 2025")
-year = st.slider("Year / السنة", 2020, 2025, 2022, step=1)
+# --- ANIMATED GIF WITH REAL-TIME METRICS ---
+st.subheader(f"{city} Urban Expansion 2020 → 2025")
 
-city_gif = "Riyadh_expansion.gif" if city == "Riyadh" else "Jeddah_expansion.gif"
-gif_url = f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{city_gif}"
+# Calculate real expansion stats
+new_area = row['Built-up 2025 (km²)'] - row['Built-up 2020 (km²)']
+percent_growth = (new_area / row['Built-up 2020 (km²)']) * 100
 
-st.image(f"{gif_url}?t={year}", use_column_width=True)
+col_left, col_right = st.columns([3, 1])
 
-# Historical chart
+with col_left:
+    gif_file = "Riyadh_expansion.gif" if city == "Riyadh" else "Jeddah_expansion.gif"
+    gif_url = f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{gif_file}"
+    st.image(gif_url, use_column_width=True)
+
+with col_right:
+    st.markdown("### Live Expansion Stats")
+    st.metric("New Built-up Area (2020-2025)", f"+{new_area:,.0f} km²")
+    st.metric("Growth Rate", f"+{percent_growth:.1f}%")
+    st.metric("Annual Land Consumption", f"{new_area/5:.0f} km²/year")
+    st.markdown(f"**Interpretation**: {'Sprawl' if percent_growth > 30 else 'Controlled' if percent_growth > 15 else 'Compact'} growth")
+
+# --- HISTORICAL CHART ---
+st.subheader("Historical Built-up Growth (1975–2025)")
 years = [1975, 1990, 2000, 2015, 2020, 2025]
 built = [row[f"Built-up {y} (km²)"] for y in years]
-fig = px.line(x=years, y=built, markers=True, title="Built-up Area Growth 1975–2025")
+fig = px.line(x=years, y=built, markers=True, title=f"{city} Built-up Area Over Time")
+fig.update_traces(line=dict(width=4), marker=dict(size=10))
+fig.update_layout(height=500)
 st.plotly_chart(fig, use_container_width=True)
 
-# Comparison bar
+# --- COMPARISON CHART ---
 st.subheader("Riyadh vs Jeddah – SDG 11.3.1 Ratio")
 fig2 = px.bar(df, x="City", y="SDG 11.3.1 Ratio (2020-25)", color="Growth Type 2025",
-              color_discrete_map={"Sprawl": "red", "Balanced": "orange", "Compact": "green"})
-fig2.add_hline(y=1.0, line_dash="dash", annotation_text="Ideal = 1.0")
+              color_discrete_map={"Sprawl": "#e74c3c", "Balanced": "#f39c12", "Compact": "#27ae60"},
+              text="SDG 11.3.1 Ratio (2020-25)")
+fig2.update_traces(textposition="outside")
+fig2.add_hline(y=1.0, line_dash="dash", line_color="white", annotation_text="Ideal = 1.0")
+fig2.update_layout(height=500, showlegend=False)
 st.plotly_chart(fig2, use_container_width=True)
 
-st.success("FINAL VERSION – 100% reliable data | Only Riyadh & Jeddah | Ready for 20 Nov 2025 presentation")
+# --- FOOTER ---
+st.markdown("---")
+st.success("Final Presentation Version | 19 Nov 2025 | Riyadh & Jeddah only | Real-time metrics | Professional design")
+st.caption("Data source: Global Human Settlement Layer (GHSL) – European Commission & UN-Habitat | Animation: GHSL Built-up Surface 2023 Release")
