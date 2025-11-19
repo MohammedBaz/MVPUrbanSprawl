@@ -237,7 +237,7 @@ with col2:
         temp = year_index
         year_index = YEARS.index(compare_year)
         compare_year = YEARS[temp]
-        st.experimental_rerun()
+        st.rerun()
 
     # Export buttons
     st.markdown("---")
@@ -256,7 +256,7 @@ if play:
         st.session_state['play_index'] = i
         # small sleep; in production consider more sophisticated state handling
         time.sleep(0.6)
-        st.experimental_rerun()
+        st.rerun()
 
 # --------------------------- Footer ---------------------------
 st.markdown("---")
