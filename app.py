@@ -201,4 +201,65 @@ with tab3:
                 st.image("https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/placeholder.png?raw=1",
                          use_column_width=True)
         else:
-            st.info("Animation asset not available. Showing static
+            st.info("Animation asset not available. Showing static summary.")
+            # Attempt to show a static PNG if exists
+            static_img_url = f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{city}_expansion_static.png?raw=1"
+            static_bytes = safe_image_from_url(static_img_url)
+            if static_bytes:
+                st.image(static_bytes, use_column_width=True)
+            else:
+                st.markdown("*(No image available in the repository — please add `assets/{}` to the repo.)*".format(gif_file))
+
+    with col_stats:
+        st.markdown("### Real-time Expansion Stats")
+        try:
+            built_2020 = float(row.get("Built-up 2020 (km²)", 0))
+            built_2025 = float(row.get("Built-up 2025 (km²)", 0))
+        except Exception:
+            built_2020 = None
+            built_2025 = None
+
+        if built_2020 in (None, 0) or built_2025 in (None, 0):
+            st.warning("Insufficient data to compute expansion statistics.")
+            if built_2020 == 0 and built_2025 != 0:
+                st.metric("New Built-up Area", f"+{format_num(built_2025)} km²")
+            else:
+                st.metric("New Built-up Area", "N/A")
+            st.metric("Growth Rate (5 years)", "N/A")
+            st.metric("Annual Land Consumption", "N/A")
+        else:
+            new_area = built_2025 - built_2020
+            # Avoid division by zero
+            growth_pct = (new_area / built_2020) * 100 if built_2020 != 0 else float("nan")
+            annual_consumption = new_area / 5.0
+            st.metric("New Built-up Area", f"+{format_num(new_area)} km²")
+            st.metric("Growth Rate (5 years)", f"+{growth_pct:.1f}%")
+            st.metric("Annual Land Consumption", f"{annual_consumption:,.2f} km²/year")
+            interpretation = "Compact & Sustainable" if growth_pct < 20 else "Moderate Sprawl" if growth_pct < 40 else "Significant Sprawl"
+            st.markdown(f"**Assessment**: {interpretation}")
+
+# ---------- Tab 4: Advanced Metrics ----------
+with tab4:
+    st.markdown("### Riyadh vs Jeddah – SDG 11.3.1 Comparison")
+    try:
+        fig = px.bar(df, x="City", y="SDG 11.3.1 Ratio (2020-25)", color="Growth Type 2025",
+                     color_discrete_map={"Sprawl": "#e74c3c", "Balanced": "#f39c12", "Compact": "#27ae60"},
+                     text="SDG 11.3.1 Ratio (2020-25)", height=520)
+        fig.add_hline(y=1.0, line_dash="dash", line_color="white",
+                      annotation_text="Ideal sustainable growth = 1.0", annotation_position="top left")
+        fig.update_traces(textposition="outside", texttemplate="%{text:.2f}", textfont_size=14)
+        fig.update_layout(yaxis_title="SDG 11.3.1 Ratio", xaxis_title="City", uniformtext_minsize=12)
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.error("Failed to draw comparison chart.")
+        st.exception(e)
+
+    st.markdown("#### Additional details")
+    st.markdown(
+        "- The dashed line at 1.0 represents an ideal balance between land consumption and population growth.\n"
+        "- Values above 1 indicate higher land consumption relative to population growth (potential sprawl)."
+    )
+
+# ---------- Footer ----------
+st.markdown("---")
+st.markdown("<p style='text-align: center; color: gray;'>Project completed 19 Nov 2025 | Data source: GHSL P2023A | Built by Mohammed Baz</p>", unsafe_allow_html=True)
