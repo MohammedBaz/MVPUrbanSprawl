@@ -6,9 +6,24 @@ import plotly.express as px
 st.set_page_config(page_title="SDG 11.3.1 Riyadh & Jeddah", layout="wide")
 
 # Title + City Selector centered
-st.markdown("<h1 style='text-align: center;'>🇸🇦 SDG 11.3.1: Urban Expansion in Riyadh & Jeddah</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 20px;'>Official UN GHSL Data (1975–2025) | European Commission & UN-Habitat</p>", unsafe_allow_html=True)
+st.markdown(
+    "<h1 style='text-align: center; color: #2E86C1; margin-bottom: 0px;'>"
+    "MVP SDG 11.3.1: Urban Expansion in Riyadh & Jeddah"
+    "</h1>",
+    unsafe_allow_html=True
+)
 
+st.markdown(
+    "<p style='text-align: center; font-size: 20px; color: #5D6D7E; margin-top: 10px;'>"
+    "Data sourced from Official UN GHSL (1975–2025) | "
+    "Satellite-derived built-up layers processed via Google Earth Engine<br>"
+    "<strong>European Commission Joint Research Centre & UN-Habitat</strong>"
+    "</p>",
+    unsafe_allow_html=True
+)
+
+# Optional: add a thin line separator for extra elegance
+st.markdown("<hr style='border-top: 1px solid #bbb; margin: 30px 0;'>", unsafe_allow_html=True)
 col1, col2, col3 = st.columns([1,1,1])
 with col2:
     city = st.selectbox("Select City", ["Riyadh", "Jeddah"], index=0)
