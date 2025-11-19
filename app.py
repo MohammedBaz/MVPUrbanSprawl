@@ -1,12 +1,11 @@
-# app.py - PROFESSIONAL VERSION 6.0 (High-Accuracy Focus)
-# Features: Satellite Time-Lapse Focus, RCRC Data Link, No "Approximate" Maps
+# app.py - ULTIMATE PROFESSIONAL VERSION (v7.0)
+# Features: Satellite Analysis focus, No RCRC references, Simulation
 # Run: streamlit run app.py
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
-from io import BytesIO
 
 # ---------- Configuration ----------
 st.set_page_config(page_title="SDG 11.3.1 Analytics Platform", layout="wide", page_icon="🏙️")
@@ -106,12 +105,11 @@ with tab1:
         key='download-csv'
     )
 
-# === TAB 2: SATELLITE ANALYSIS (GIF ONLY - ACCURATE DATA) ===
+# === TAB 2: SATELLITE ANALYSIS (CLEAN - NO RCRC) ===
 with tab2:
     st.markdown("### 🛰️ Satellite-Derived Urban Evolution (1985–2023)")
     st.write("Visualizing the actual physical expansion of the urban fabric using high-resolution archival imagery.")
 
-    # 1. The Accurate Satellite Animation
     col_spacer, col_main, col_spacer2 = st.columns([1, 3, 1]) # Center the image
     
     with col_main:
@@ -123,17 +121,8 @@ with tab2:
             st.image(gif_bytes, use_column_width=True, caption=f"Processed Sentinel-2 Time-Lapse: {city}")
         else:
             st.image(f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{city}_expansion_static.png?raw=1")
-
-    # 2. The Professional Data Link (RCRC)
-    st.markdown("---")
-    st.markdown("### 🏛️ Official Geospatial Data Sources")
-    st.info("""
-    **Integration with Official Standards:**
-    To ensure maximum accuracy, the final vector database for this project aligns with the **Royal Commission for Riyadh City (RCRC)** Open Data standards.
     
-    * **Primary Raster Data:** Google Earth Engine (Sentinel-2 L2A).
-    * **Vector Validation:** [RCRC Open Data Portal](https://opendata.rcrc.gov.sa/explore/?sort=modified) (Districts & Land Use Layers).
-    """)
+    st.info("ℹ️ **Technical Note:** This animation is generated from 40 years of Landsat and Sentinel-2 satellite imagery processed via Google Earth Engine.")
 
 # === TAB 3: HISTORICAL TRENDS ===
 with tab3:
@@ -149,11 +138,13 @@ with tab3:
 # === TAB 4: SIMULATION ===
 with tab4:
     st.subheader(f"Scenario: {city} in 2030")
+    st.write("Use the sidebar sliders to simulate future growth scenarios.")
     
     current_pop = row["Population 2025"]
     current_built = row["Built-up 2025 (km²)"]
     years_forecast = 5 
     
+    # Compound Growth Formula
     future_pop = current_pop * ((1 + sim_pop_growth/100) ** years_forecast)
     future_built = current_built * ((1 + sim_land_consumption/100) ** years_forecast)
     
@@ -171,8 +162,8 @@ with tab5:
     st.markdown("### Methodology & Data Pipeline")
     st.markdown("""
     **1. Geospatial Database Construction**
-    * **Vector Layers:** Aligned with RCRC administrative boundaries.
     * **Raster Processing:** Sentinel-2 and Landsat imagery processed in **Google Earth Engine (GEE)**.
+    * **Vector Layers:** Urban boundaries derived from administrative shapefiles.
     
     **2. Machine Learning Classification**
     * **Algorithm:** Random Forest Classifier (100 trees).
@@ -186,4 +177,4 @@ with tab5:
 
 # ---------- Footer ----------
 st.markdown("---")
-st.markdown(f"<center>Developed by Mohammed Baz | Data Source: GHSL, GEE & RCRC | {pd.Timestamp.now().year}</center>", unsafe_allow_html=True)
+st.markdown(f"<center>Developed by Mohammed Baz | Data Source: GHSL & GEE | {pd.Timestamp.now().year}</center>", unsafe_allow_html=True)
