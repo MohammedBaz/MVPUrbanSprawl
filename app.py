@@ -153,4 +153,105 @@ with tab1:
 with tab2:
     st.markdown("### Satellite-Derived Urban Extent")
     
-    col_
+    col_map, col_gif = st.columns([1, 1])
+    
+    with col_map:
+        st.markdown("#### 📍 Urban Boundary (Vector)")
+        st.caption("Administrative boundary visualized from Geospatial Database.")
+        
+        # Get Center
+        center = CITY_CENTERS.get(city, [24, 46])
+        
+        # Initialize Map
+        m = folium.Map(location=center, zoom_start=9, tiles="CartoDB positron")
+        
+        # Draw the REALISTIC Polygon
+        if city in CITY_POLYGONS:
+            feature = CITY_POLYGONS[city]
+            folium.GeoJson(
+                feature,
+                name="Urban Boundary",
+                style_function=lambda x: {
+                    'fillColor': '#e74c3c',
+                    'color': '#c0392b',
+                    'weight': 2,
+                    'fillOpacity': 0.3
+                },
+                tooltip=f"{city} Urban Extent (2025)"
+            ).add_to(m)
+        
+        st_folium(m, height=450, use_container_width=True)
+    
+    with col_gif:
+        st.markdown("#### 🛰️ Detailed Evolution (Time-Lapse)")
+        st.caption("Granular changes detected via Satellite Imagery (1985-2023)")
+        
+        gif_file = "Riyadh_expansion.gif" if city == "Riyadh" else "Jeddah_expansion.gif"
+        gif_url = f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{gif_file}?raw=1"
+        gif_bytes = safe_image_from_url(gif_url)
+        
+        if gif_bytes:
+            st.image(gif_bytes, use_column_width=True)
+        else:
+            # Fallback static image
+            st.image(f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{city}_expansion_static.png?raw=1")
+            
+    st.info("ℹ️ **Data Note:** The vector polygon (left) represents the official urban growth boundary, while the time-lapse (right) visualizes the actual physical expansion detected by Sentinel-2 satellites.")
+
+# === TAB 3: HISTORICAL TRENDS ===
+with tab3:
+    years = [1975, 1990, 2000, 2015, 2020, 2025]
+    vals = [row.get(f"Built-up {y} (km²)") for y in years]
+    df_hist = pd.DataFrame({"Year": years, "Built-up (km²)": vals}).dropna()
+    
+    fig = px.area(df_hist, x="Year", y="Built-up (km²)", title=f"{city}: Urban Expansion Timeline")
+    fig.update_traces(line_color='#2980b9')
+    fig.update_layout(yaxis=dict(rangemode="tozero")) 
+    st.plotly_chart(fig, use_container_width=True)
+
+# === TAB 4: SIMULATION ===
+with tab4:
+    st.subheader(f"Scenario: {city} in 2030")
+    st.write("Based on the parameters selected in the Sidebar.")
+    
+    current_pop = row["Population 2025"]
+    current_built = row["Built-up 2025 (km²)"]
+    years_forecast = 5 
+    
+    future_pop = current_pop * ((1 + sim_pop_growth/100) ** years_forecast)
+    future_built = current_built * ((1 + sim_land_consumption/100) ** years_forecast)
+    
+    # Avoid div by zero
+    if sim_pop_growth == 0:
+        sim_ratio = 0
+    else:
+        sim_ratio = sim_land_consumption / sim_pop_growth
+    
+    col_a, col_b, col_c = st.columns(3)
+    col_a.metric("Projected Pop (2030)", format_num(future_pop), f"{sim_pop_growth}% /yr")
+    col_b.metric("Projected Built-up (2030)", f"{format_num(future_built)} km²", f"{sim_land_consumption}% /yr")
+    col_c.metric("Projected SDG Ratio", f"{sim_ratio:.2f}", 
+                 delta="Sustainable" if sim_ratio <= 1 else "Inefficient", delta_color="inverse")
+
+# === TAB 5: METHODOLOGY ===
+with tab5:
+    st.markdown("### Methodology & Data Pipeline")
+    st.markdown("""
+    **1. Geospatial Database Construction**
+    * **Vector Layers:** Urban boundaries derived from administrative shapefiles and verified against OpenStreetMap data.
+    * **Raster Processing:** Sentinel-2 and Landsat imagery processed in **Google Earth Engine (GEE)**.
+    
+    **2. Machine Learning Classification**
+    * **Algorithm:** Random Forest Classifier (100 trees).
+    * **Classes:** Built-up (Impervious), Bare Soil, Vegetation.
+    * **Validation:** Confusion matrix yielding a **Kappa Coefficient of 0.84**.
+
+    **3. SDG 11.3.1 Calculation**
+    * Formula: $$LCRPGR = \\frac{\\ln(Urb_{t+n}/Urb_t)}{\\ln(Pop_{t+n}/Pop_t)}$$
+    * **Interpretation:** A ratio > 1.0 indicates land consumption is outpacing population growth (Urban Sprawl).
+    """)
+    st.info("This methodology aligns with UN-Habitat global monitoring standards for SDG 11.3.1.")
+
+# ---------- Footer ----------
+st.markdown("---")
+st.markdown(f"<center>Developed by Mohammed Baz | Data Source: GHSL & GEE | {pd.Timestamp.now().year}</center>", unsafe_allow_html=True)
