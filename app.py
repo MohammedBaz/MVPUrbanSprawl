@@ -1,24 +1,17 @@
-# app.py - ULTIMATE PROFESSIONAL VERSION (v2.1)
-# Features: Fixed Map Scaling + Re-integrated GIF + Methodologies
+# app.py - ULTIMATE PROFESSIONAL VERSION (v3.0)
+# Features: GeoJSON Polygons (Accuracy), Population Modeling, Methodology
 # Run: streamlit run app.py
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 import requests
-import math
 import folium
+import json
 from streamlit_folium import st_folium
-from io import BytesIO
 
 # ---------- Configuration ----------
 st.set_page_config(page_title="SDG 11.3.1 Analytics Platform", layout="wide", page_icon="🏙️")
-
-# City Coordinates (Lat, Lon)
-CITY_COORDS = {
-    "Riyadh": [24.7136, 46.6753],
-    "Jeddah": [21.2854, 39.2376]
-}
 
 # ---------- Helpers ----------
 def github_raw(url: str) -> str:
@@ -34,8 +27,21 @@ def load_csv_from_github(url: str) -> pd.DataFrame:
     try:
         df = pd.read_csv(url)
     except Exception as e:
-        raise RuntimeError(f"Failed to load CSV: {e}")
+        st.error(f"Failed to load CSV: {e}")
+        st.stop()
     return df
+
+@st.cache_data(ttl=3600)
+def load_geojson_from_github(url: str):
+    """Load GeoJSON from GitHub or Local for the map."""
+    url = github_raw(url)
+    try:
+        resp = requests.get(url, timeout=10)
+        if resp.status_code == 200:
+            return resp.json()
+    except Exception:
+        return None
+    return None
 
 def safe_image_from_url(url: str):
     url = github_raw(url)
@@ -50,26 +56,19 @@ def safe_image_from_url(url: str):
 def format_num(n):
     return f"{n:,.0f}"
 
-def calculate_radius(area_km2):
-    """Convert Area (km2) to Radius (meters)."""
-    if area_km2 <= 0: return 0
-    # Area = pi * r^2  => r = sqrt(Area / pi)
-    radius_km = math.sqrt(area_km2 / math.pi)
-    return radius_km * 1000  # convert to meters
-
 # ---------- Load Data ----------
-DATA_URL = "https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/saudi_cities_sdg1131_1975_2025.csv?raw=1"
+# 1. CSV Data
+CSV_URL = "https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/saudi_cities_sdg1131_1975_2025.csv?raw=1"
+df_all = load_csv_from_github(CSV_URL)
 
-try:
-    df_all = load_csv_from_github(DATA_URL)
-except Exception:
-    st.error("System Error: Unable to connect to the Data Repository.")
-    st.stop()
+# 2. GeoJSON Data (The new accurate file)
+# NOTE: Ensure 'regions.geojson' is uploaded to your GitHub repo!
+GEOJSON_URL = "https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/regions.geojson?raw=1"
+geo_data = load_geojson_from_github(GEOJSON_URL)
 
 # ---------- Sidebar Controls ----------
 st.sidebar.title("Control Panel")
 
-# 1. City Selection
 city = st.sidebar.selectbox("Select Urban Area", ["Riyadh", "Jeddah"], index=0)
 
 # Filter Data
@@ -77,7 +76,7 @@ df = df_all[df_all["City"] == city].reset_index(drop=True)
 if df.empty: st.stop()
 row = df.iloc[0]
 
-# 2. Simulation Parameters
+# Simulation Controls
 st.sidebar.markdown("---")
 st.sidebar.header("🔮 2030 Scenario Simulator")
 sim_pop_growth = st.sidebar.slider("Annual Pop. Growth (%)", 0.5, 5.0, 2.5, 0.1)
@@ -111,49 +110,88 @@ with tab1:
               delta="Efficient" if sdg_val <= 1 else "Sprawling", delta_color="inverse")
     
     st.markdown("---")
-    # Historical Chart
     years = [1975, 1990, 2000, 2015, 2020, 2025]
     vals = [row.get(f"Built-up {y} (km²)") for y in years]
     df_hist = pd.DataFrame({"Year": years, "Built-up (km²)": vals}).dropna()
-    
     fig = px.area(df_hist, x="Year", y="Built-up (km²)", title=f"{city}: Urban Expansion Timeline")
     fig.update_traces(line_color='#2980b9')
     fig.update_layout(yaxis=dict(rangemode="tozero")) 
     st.plotly_chart(fig, use_container_width=True)
 
-# === TAB 2: GEOSPATIAL ANALYSIS (Map + GIF) ===
+# === TAB 2: GEOSPATIAL ANALYSIS (UPDATED WITH GEOJSON) ===
 with tab2:
     st.markdown("### Satellite-Derived Urban Extent")
     
-    # Layout: Left = Interactive Context Map, Right = Detailed Time-Lapse GIF
     col_map, col_gif = st.columns([1, 1])
     
     with col_map:
-        st.markdown("#### 📍 Location Context")
-        st.caption("Visualizing total area scale (Circle = Estimated Area)")
+        st.markdown("#### 📍 Regional Boundaries (Vector)")
+        st.caption("Accurate administrative/regional boundaries from Geospatial Database.")
         
-        # Map
-        m = folium.Map(location=CITY_COORDS[city], zoom_start=10, tiles="CartoDB positron")
+        # Default center if GeoJSON fails
+        default_locs = {"Riyadh": [24.7136, 46.6753], "Jeddah": [21.2854, 39.2376]}
+        map_center = default_locs.get(city, [24, 46])
         
-        # Visualizing 2025 Area
-        r_2025 = calculate_radius(row['Built-up 2025 (km²)'])
-        folium.Circle(
-            location=CITY_COORDS[city],
-            radius=r_2025,
-            color="#e74c3c",
-            weight=2,
-            fill=True,
-            fill_opacity=0.2,
-            tooltip=f"Estimated Urban Zone 2025"
-        ).add_to(m)
+        # Initialize Map
+        m = folium.Map(location=map_center, zoom_start=9, tiles="CartoDB positron")
         
+        # Filter and Add GeoJSON
+        found_feature = False
+        if geo_data:
+            # Try to find the feature matching the selected city
+            # Logic: Look for 'name', 'Name', 'NAME_EN' in properties
+            selected_feature = None
+            for feature in geo_data.get('features', []):
+                props = feature.get('properties', {})
+                # Check common keys for the city name
+                name_vals = [str(v).lower() for v in props.values()]
+                if city.lower() in name_vals:
+                    selected_feature = feature
+                    break
+            
+            if selected_feature:
+                found_feature = True
+                # Add the polygon
+                folium.GeoJson(
+                    selected_feature,
+                    name="Urban Boundary",
+                    style_function=lambda x: {
+                        'fillColor': '#e74c3c',
+                        'color': '#c0392b',
+                        'weight': 2,
+                        'fillOpacity': 0.3
+                    },
+                    tooltip=f"{city} Region Boundary"
+                ).add_to(m)
+                
+                # Optional: Center map on the polygon centroid if geometry is simple
+                try:
+                    # Rough centroid calculation for better zoom
+                    coords = selected_feature['geometry']['coordinates'][0]
+                    # Handle MultiPolygon vs Polygon logic if necessary
+                    # Simple average of first ring
+                    if len(coords) > 0:
+                        # Flatten if needed (MultiPolygon structure varies)
+                        while isinstance(coords[0][0], list): 
+                             coords = coords[0]
+                        lats = [p[1] for p in coords]
+                        lons = [p[0] for p in coords]
+                        m.fit_bounds([[min(lats), min(lons)], [max(lats), max(lons)]])
+                except:
+                    pass # Fallback to default zoom
+            else:
+                st.warning(f"Boundaries for {city} not found in regions.geojson")
+        
+        if not found_feature:
+            # Fallback to circle if GeoJSON fails or city not found
+            folium.Circle(location=map_center, radius=20000, color="red").add_to(m)
+
         st_folium(m, height=400, use_container_width=True)
     
     with col_gif:
         st.markdown("#### 🛰️ Detailed Evolution (Time-Lapse)")
         st.caption("Granular changes detected via Satellite Imagery (1985-2023)")
         
-        # Load GIF
         gif_file = "Riyadh_expansion.gif" if city == "Riyadh" else "Jeddah_expansion.gif"
         gif_url = f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{gif_file}?raw=1"
         gif_bytes = safe_image_from_url(gif_url)
@@ -161,21 +199,14 @@ with tab2:
         if gif_bytes:
             st.image(gif_bytes, use_column_width=True)
         else:
-            st.warning("Satellite animation loading...")
-            # Fallback
             st.image(f"https://raw.githubusercontent.com/MohammedBaz/MVPUrbanSprawl/main/assets/{city}_expansion_static.png?raw=1")
-
-    st.info("ℹ️ **Technical Note:** The map on the left represents the *statistical extent* (Total Area). The animation on the right represents the *vector reality* (Actual Shapes).")
 
 # === TAB 3: SIMULATION ===
 with tab3:
     st.subheader(f"Scenario: {city} in 2030")
-    st.write("Based on the parameters selected in the Sidebar.")
-    
     current_pop = row["Population 2025"]
     current_built = row["Built-up 2025 (km²)"]
     years_forecast = 5 
-    
     future_pop = current_pop * ((1 + sim_pop_growth/100) ** years_forecast)
     future_built = current_built * ((1 + sim_land_consumption/100) ** years_forecast)
     sim_ratio = sim_land_consumption / sim_pop_growth if sim_pop_growth != 0 else 0
@@ -190,13 +221,13 @@ with tab3:
 with tab4:
     st.markdown("### Methodology & Data Pipeline")
     st.markdown("""
-    **1. Data Acquisition**
-    * **Satellite Imagery:** Sentinel-2 (10m) & Landsat 8 (30m).
-    * **Source:** Google Earth Engine (GEE) Catalog.
+    **1. Geospatial Database Construction**
+    * **Vector Layers:** Sourced from `regions.geojson` containing administrative boundaries.
+    * **Raster Processing:** Sentinel-2 imagery processed in Google Earth Engine.
     
-    **2. Processing**
-    * **Classification:** Random Forest (Supervised Learning).
-    * **Validation:** Ground truth verification using 400+ control points.
+    **2. Classification**
+    * **Algorithm:** Random Forest (Supervised Learning).
+    * **Validation:** Ground truth verification.
     
     **3. SDG Formula**
     $$LCRPGR = \\frac{\\ln(Urb_{t+n}/Urb_t)}{\\ln(Pop_{t+n}/Pop_t)}$$
