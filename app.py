@@ -15,30 +15,8 @@ st.set_page_config(page_title="SDG 11.3.1 Analytics Platform", layout="wide", pa
 # ---------- HARDCODED GEOSPATIAL DATA (The "Database") ----------
 # Extracted polygons for Riyadh and Jeddah to ensure stability without external files.
 CITY_POLYGONS = {
-    "Riyadh": {
-        "type": "Feature",
-        "properties": {"name": "Riyadh Urban Extent"},
-        "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-                [46.6000, 24.6000], [46.8500, 24.6000], [46.9000, 24.8000], 
-                [46.8000, 24.9500], [46.6000, 24.9000], [46.5500, 24.7500], 
-                [46.6000, 24.6000]
-            ]]
-        }
-    },
-    "Jeddah": {
-        "type": "Feature",
-        "properties": {"name": "Jeddah Urban Extent"},
-        "geometry": {
-            "type": "Polygon",
-            "coordinates": [[
-                [39.1000, 21.2000], [39.2500, 21.2000], [39.3000, 21.4000], 
-                [39.2500, 21.7000], [39.1500, 21.8000], [39.0500, 21.6000], 
-                [39.1000, 21.2000]
-            ]]
-        }
-    }
+    "Riyadh": {"id": "0", "type": "Feature", "properties": {"name": "Riyadh Urban Extent"}, "geometry": {"type": "Point", "coordinates": [46.73333, 24.7]}, "bbox": [46.73333, 24.7, 46.73333, 24.7]},
+    "Jeddah": {"id": "0", "type": "Feature", "properties": {"name": "Jeddah Urban Extent"}, "geometry": {"type": "Point", "coordinates": [39.18095, 21.48818]}, "bbox": [39.18095, 21.48818, 39.18095, 21.48818]},
 }
 
 # Center points for the map
