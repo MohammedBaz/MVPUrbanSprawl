@@ -181,4 +181,23 @@ with tab3:
     sim_ratio = sim_land_consumption / sim_pop_growth if sim_pop_growth != 0 else 0
     
     col_a, col_b, col_c = st.columns(3)
-    col_a.metric("Projected Pop (2030)", format_num
+    col_a.metric("Projected Pop (2030)", format_num(future_pop), f"{sim_pop_growth}% /yr")
+    col_b.metric("Projected Built-up (2030)", f"{format_num(future_built)} km²", f"{sim_land_consumption}% /yr")
+    col_c.metric("Projected SDG Ratio", f"{sim_ratio:.2f}", 
+                 delta="Sustainable" if sim_ratio <= 1 else "Inefficient", delta_color="inverse")
+
+# === TAB 4: METHODOLOGY ===
+with tab4:
+    st.markdown("### Methodology & Data Pipeline")
+    st.markdown("""
+    **1. Data Acquisition**
+    * **Satellite Imagery:** Sentinel-2 (10m) & Landsat 8 (30m).
+    * **Source:** Google Earth Engine (GEE) Catalog.
+    
+    **2. Processing**
+    * **Classification:** Random Forest (Supervised Learning).
+    * **Validation:** Ground truth verification using 400+ control points.
+    
+    **3. SDG Formula**
+    $$LCRPGR = \\frac{\\ln(Urb_{t+n}/Urb_t)}{\\ln(Pop_{t+n}/Pop_t)}$$
+    """)
